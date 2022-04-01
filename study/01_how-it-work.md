@@ -8,7 +8,7 @@
 
 packages\vite\src\node\cli.ts
 
-new cac(vite)
+new Cac(vite)
 
 ## dev
 
