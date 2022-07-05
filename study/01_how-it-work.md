@@ -8,6 +8,8 @@
 
 packages\vite\src\node\cli.ts
 
+new cac(vite)
+
 ## dev
 
 走到 action 的 createServer
