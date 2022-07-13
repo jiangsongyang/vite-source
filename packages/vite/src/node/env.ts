@@ -17,10 +17,15 @@ export function loadEnv(
   }
   prefixes = arraify(prefixes)
   const env: Record<string, string> = {}
+  
   const envFiles = [
+    /** .evn.(development | production).local */
     /** mode local file */ `.env.${mode}.local`,
+    /** .evn.(development | production) */
     /** mode file */ `.env.${mode}`,
+    /** .evn.local */
     /** local file */ `.env.local`,
+    /** .evn */
     /** default file */ `.env`
   ]
 
@@ -61,6 +66,7 @@ export function loadEnv(
           process.env.VITE_USER_NODE_ENV === undefined
         ) {
           // NODE_ENV override in .env file
+          // 如果配置了 NODE_ENV 覆盖成 VITE_USER_NODE_ENV 
           process.env.VITE_USER_NODE_ENV = value
         }
       }

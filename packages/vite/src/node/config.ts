@@ -353,6 +353,7 @@ export type ResolveFn = (
   ssr?: boolean
 ) => Promise<string | undefined>
 
+// 解析配置
 export async function resolveConfig(
   inlineConfig: InlineConfig,
   command: 'build' | 'serve',
@@ -375,7 +376,9 @@ export async function resolveConfig(
     ssrBuild: !!config.build?.ssr
   }
 
+  // 这里的 config 是命令行指定的配置，如 vite --configFile=xxx
   let { configFile } = config
+  // 默认都会走到下面加载配置文件的逻辑，除非你手动指定 configFile 为 false
   if (configFile !== false) {
     const loadResult = await loadConfigFromFile(
       configEnv,
@@ -384,6 +387,7 @@ export async function resolveConfig(
       config.logLevel
     )
     if (loadResult) {
+      // 和命令行的配置进行合并
       config = mergeConfig(loadResult.config, config)
       configFile = loadResult.path
       configFileDependencies = loadResult.dependencies
@@ -401,6 +405,7 @@ export async function resolveConfig(
   configEnv.mode = mode
 
   // resolve plugins
+  // 用户注册的 plugins
   const rawUserPlugins = (
     (await asyncFlatten(config.plugins || [])) as Plugin[]
   ).filter((p) => {
@@ -414,6 +419,8 @@ export async function resolveConfig(
       return p.apply === command
     }
   })
+
+  // 依次调用插件 config 钩子，进行配置合并
   const [prePlugins, normalPlugins, postPlugins] =
     sortUserPlugins(rawUserPlugins)
 
@@ -425,17 +432,20 @@ export async function resolveConfig(
   }
 
   // run config hooks
+  // 运行插件钩子函数
   const userPlugins = [...prePlugins, ...normalPlugins, ...postPlugins]
   for (const p of userPlugins) {
     if (p.config) {
       const res = await p.config(config, configEnv)
       if (res) {
+        // 配置合并函数
         config = mergeConfig(config, res)
       }
     }
   }
 
   // resolve root
+  // 项目的根目录
   const resolvedRoot = normalizePath(
     config.root ? path.resolve(config.root) : process.cwd()
   )
@@ -461,9 +471,11 @@ export async function resolveConfig(
   }
 
   // load .env files
+  // 扫描 process.env 与 .env文件
   const envDir = config.envDir
     ? normalizePath(path.resolve(resolvedRoot, config.envDir))
     : resolvedRoot
+  // 判断是不是以 VITE_ 开头 如果是就 merge 到 env
   const userEnv =
     inlineConfig.envFile !== false &&
     loadEnv(mode, envDir, resolveEnvPrefix(config))
@@ -512,9 +524,12 @@ export async function resolveConfig(
 
   // create an internal resolver to be used in special scenarios, e.g.
   // optimizer & handling css @imports
+  // 定义路径解析器工厂
   const createResolver: ResolvedConfig['createResolver'] = (options) => {
     let aliasContainer: PluginContainer | undefined
     let resolverContainer: PluginContainer | undefined
+
+    // 解析器
     return async (id, importer, aliasOnly, ssr) => {
       let container: PluginContainer
       if (aliasOnly) {
@@ -580,6 +595,8 @@ export async function resolveConfig(
 
   const BASE_URL = resolvedBase
 
+  // !!!!!
+  // 解析完的配置
   const resolved: ResolvedConfig = {
     ...config,
     configFile: configFile ? normalizePath(configFile) : undefined,
@@ -686,6 +703,8 @@ export async function resolveConfig(
     isWorker: true,
     mainConfig: resolved
   }
+
+  // 生成插件流水线
   resolved.worker.plugins = await resolvePlugins(
     workerResolved,
     workerPrePlugins,
@@ -704,6 +723,7 @@ export async function resolveConfig(
   )
 
   // call configResolved hooks
+  // call 用每个插件的 configResolved 钩子
   await Promise.all(userPlugins.map((p) => p.configResolved?.(resolved)))
 
   if (process.env.DEBUG) {
@@ -818,6 +838,14 @@ export function sortUserPlugins(
   return [prePlugins, normalPlugins, postPlugins]
 }
 
+/**
+ * TS + ESM 格式
+ * TS + CommonJS 格式
+ * JS + ESM 格式
+ * JS + CommonJS 格式
+ * 
+ * 根据 vite.config 的类型处理配置文件
+ */
 export async function loadConfigFromFile(
   configEnv: ConfigEnv,
   configFile?: string,
