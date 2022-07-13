@@ -843,7 +843,7 @@ export function sortUserPlugins(
  * TS + CommonJS 格式
  * JS + ESM 格式
  * JS + CommonJS 格式
- * 
+ *
  * 根据 vite.config 的类型处理配置文件
  */
 export async function loadConfigFromFile(
@@ -883,14 +883,18 @@ export async function loadConfigFromFile(
   }
 
   let isESM = false
+  // 如果是 mjs || mts 文件，则认为是 ESM 格式
   if (/\.m[jt]s$/.test(resolvedPath)) {
     isESM = true
-  } else if (/\.c[jt]s$/.test(resolvedPath)) {
+  }
+  // 如果是 cjs | cts 文件，则认为是 CommonJS 格式
+  else if (/\.c[jt]s$/.test(resolvedPath)) {
     isESM = false
   } else {
     // check package.json for type: "module" and set `isESM` to true
     try {
       const pkg = lookupFile(configRoot, ['package.json'])
+      // 看 pkg 里 type === module 来判断模块加载情况
       isESM = !!pkg && JSON.parse(pkg).type === 'module'
     } catch (e) {}
   }
@@ -900,23 +904,33 @@ export async function loadConfigFromFile(
 
     if (isESM) {
       const fileUrl = pathToFileURL(resolvedPath)
+      // 1 对代码进行打包 (esbuild 编译成 js)
       const bundled = await bundleConfigFile(resolvedPath, true)
+      // 记录依赖
       dependencies = bundled.dependencies
-
+      // TS + ESM
       if (isTS(resolvedPath)) {
         // before we can register loaders without requiring users to run node
         // with --experimental-loader themselves, we have to do a hack here:
         // bundle the config file w/ ts transforms first, write it to disk,
         // load it with native Node ESM, then delete the file.
+        //在不需要用户运行node的情况下注册loader
+        //对于——experimental-loader本身，我们必须在这里做一个hack:
+        //首先绑定w/ ts转换的配置文件，将其写入磁盘，
+        //使用本地Node ESM加载它，然后删除文件。
         fs.writeFileSync(resolvedPath + '.mjs', bundled.code)
         try {
+          // 拼上时间 防止 mhr 更新时的缓存
           userConfig = (await dynamicImport(`${fileUrl}.mjs?t=${Date.now()}`))
             .default
         } finally {
+          // 删除临时文件
           fs.unlinkSync(resolvedPath + '.mjs')
         }
         debug(`TS + native esm config loaded in ${getTime()}`, fileUrl)
-      } else {
+      }
+      // JS + ESM
+      else {
         // using Function to avoid this from being compiled away by TS/Rollup
         // append a query so that we force reload fresh config in case of
         // server restart
@@ -927,8 +941,12 @@ export async function loadConfigFromFile(
 
     if (!userConfig) {
       // Bundle config file and transpile it to cjs using esbuild.
+      // 对于 js/ts 均生效
+      // 对于 CommonJS 格式的配置文件，Vite 集中进行了解析:
+      // 使用 esbuild 将配置文件编译成 commonjs 格式的 bundle 文件
       const bundled = await bundleConfigFile(resolvedPath)
       dependencies = bundled.dependencies
+      // 加载编译后的 bundle 代码
       userConfig = await loadConfigFromBundledFile(resolvedPath, bundled.code)
       debug(`bundled config file loaded in ${getTime()}`)
     }
@@ -1018,13 +1036,17 @@ interface NodeModuleWithCompile extends NodeModule {
 }
 
 const _require = createRequire(import.meta.url)
+// 加载 esbuild 生成的 bundle
 async function loadConfigFromBundledFile(
   fileName: string,
   bundledCode: string
 ): Promise<UserConfig> {
   const realFileName = fs.realpathSync(fileName)
+  // 默认加载器
   const defaultLoader = _require.extensions['.js']
+  // 拦截原生 require 对于`.js`或者`.ts`的加载
   _require.extensions['.js'] = (module: NodeModule, filename: string) => {
+    // 针对 vite 配置文件的加载特殊处理
     if (filename === realFileName) {
       ;(module as NodeModuleWithCompile)._compile(bundledCode, filename)
     } else {
