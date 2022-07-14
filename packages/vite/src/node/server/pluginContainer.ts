@@ -164,13 +164,17 @@ export async function createPluginContainer(
   const watchFiles = new Set<string>()
 
   // TODO: use import()
+  // 导入模块
   const _require = createRequire(import.meta.url)
 
   // get rollup version
+  // 得到 rollup 版本
   const rollupPkgPath = resolve(
     _require.resolve('rollup'),
     '../../package.json'
   )
+
+  // 初始化一个小型上下文
   const minimalContext: MinimalPluginContext = {
     meta: {
       rollupVersion: JSON.parse(fs.readFileSync(rollupPkgPath, 'utf-8'))
@@ -489,6 +493,7 @@ export async function createPluginContainer(
 
   let closed = false
 
+  // 最后返回的插件容器
   const container: PluginContainer = {
     options: await (async () => {
       let options = rollupOptions
