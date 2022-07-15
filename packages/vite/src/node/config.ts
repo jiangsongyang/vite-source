@@ -380,6 +380,7 @@ export async function resolveConfig(
   let { configFile } = config
   // 默认都会走到下面加载配置文件的逻辑，除非你手动指定 configFile 为 false
   if (configFile !== false) {
+    // 加载 vite.config
     const loadResult = await loadConfigFromFile(
       configEnv,
       configFile,
@@ -456,6 +457,8 @@ export async function resolveConfig(
   ]
 
   // resolve alias with internal client alias
+  // 处理 alias 别名
+  // 跟用户传入的 alias 合并
   const resolvedAlias = normalizeAlias(
     mergeAlias(
       // @ts-ignore because @rollup/plugin-alias' type doesn't allow function
@@ -465,6 +468,7 @@ export async function resolveConfig(
     )
   )
 
+  // 最终的 resolve config
   const resolveOptions: ResolvedConfig['resolve'] = {
     ...config.resolve,
     alias: resolvedAlias
@@ -504,6 +508,7 @@ export async function resolveConfig(
       : './'
     : resolveBaseUrl(config.base, isBuild, logger) ?? '/'
 
+  // 和 默认 buildOption 合并
   const resolvedBuildOptions = resolveBuildOptions(
     config.build,
     isBuild,
@@ -512,6 +517,8 @@ export async function resolveConfig(
 
   // resolve cache directory
   const pkgPath = lookupFile(resolvedRoot, [`package.json`], { pathOnly: true })
+  // 'vite\\playground\\cli\\node_modules\\.vite'
+  // 缓存目录
   const cacheDir = config.cacheDir
     ? path.resolve(resolvedRoot, config.cacheDir)
     : pkgPath
@@ -567,6 +574,7 @@ export async function resolveConfig(
   }
 
   const { publicDir } = config
+  // Public 文件夹的路径
   const resolvedPublicDir =
     publicDir !== false && publicDir !== ''
       ? path.resolve(
@@ -903,6 +911,7 @@ export async function loadConfigFromFile(
     let userConfig: UserConfigExport | undefined
 
     if (isESM) {
+      //
       const fileUrl = pathToFileURL(resolvedPath)
       // 1 对代码进行打包 (esbuild 编译成 js)
       const bundled = await bundleConfigFile(resolvedPath, true)
