@@ -351,6 +351,7 @@ export async function build(
   }
 }
 
+/** 打包方法入口 */
 async function doBuild(
   inlineConfig: InlineConfig = {}
 ): Promise<RollupOutput | RollupOutput[] | RollupWatcher> {
@@ -402,6 +403,7 @@ async function doBuild(
     await initDepsOptimizer(config)
   }
 
+  // 默认 rollup 配置
   const rollupOptions: RollupOptions = {
     context: 'globalThis',
     preserveEntrySignatures: ssr
@@ -538,8 +540,11 @@ async function doBuild(
     }
 
     // write or generate files with rollup
+    // 打包使用 rollup
     const { rollup } = await import('rollup')
+    // 打完包 拿到 bundle
     const bundle = await rollup(rollupOptions)
+    
     parallelBuilds.push(bundle)
 
     const generate = (output: OutputOptions = {}) => {
